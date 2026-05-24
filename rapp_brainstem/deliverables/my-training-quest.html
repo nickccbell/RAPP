@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAPP Brainstem — Training Quest</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--bg:#eaecf0;--bg2:#f4f5f7;--blue:#0969da;--green:#1a7f37;--orange:#bf8700;--red:#cf222e;--text:#24292f;--text-muted:#57606a;--border:#c5ccd6;--panel-w:460px;--top-bar:52px}
+  html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:linear-gradient(135deg,#dfe2e6 0%,var(--bg) 100%);color:var(--text)}
+  .top-bar{position:fixed;top:0;left:0;right:0;height:var(--top-bar);background:rgba(234,236,240,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;z-index:100}
+  .top-bar .title{font-size:15px;font-weight:600;white-space:nowrap}.top-bar .title span{color:var(--blue)}
+  .progress-wrap{flex:1;max-width:420px;margin:0 auto;display:flex;align-items:center;gap:10px}
+  .progress-track{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--green));border-radius:4px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+  .progress-label{font-size:13px;color:var(--text-muted);min-width:90px;text-align:right}
+  .btn-reset{background:transparent;border:1px solid var(--border);color:var(--text-muted);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;transition:all .2s}.btn-reset:hover{border-color:var(--red);color:var(--red)}
+  .quest-map{position:fixed;top:var(--top-bar);left:0;right:0;bottom:0;overflow:hidden}
+  .quest-map svg.path-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .phase-label{position:absolute;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:var(--text-muted);opacity:.55;pointer-events:none}
+  .phase-label.p1{top:82px;left:1%}.phase-label.p2{top:82px;left:16%}.phase-label.p3{top:82px;left:31%}.phase-label.p4{top:82px;left:86.0%}
+  .phase-divider{position:absolute;top:var(--top-bar);bottom:0;width:1px;background:linear-gradient(to bottom,transparent,var(--border) 15%,var(--border) 85%,transparent);opacity:.6;pointer-events:none}
+  .phase-divider.d1{left:15%}.phase-divider.d2{left:30%}.phase-divider.d3{left:85.0%}
+  .node{position:absolute;width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .35s cubic-bezier(.4,0,.2,1);z-index:10;transform:translate(-50%,-50%)}
+  .node .ring{position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--border);transition:all .35s}
+  .node .inner{width:100%;height:100%;border-radius:50%;background:#f0f1f3;display:flex;align-items:center;justify-content:center;font-size:22px;position:relative;z-index:1;transition:all .35s;border:2px solid var(--border)}
+  .node.active .ring{border-color:var(--blue);box-shadow:0 0 20px rgba(88,166,255,.35);animation:pulse-ring 2s infinite}
+  .node.active .inner{border-color:var(--blue);background:rgba(88,166,255,.1);transform:scale(1.12)}.node.active .lock{display:none}
+  .node.complete .ring{border-color:var(--green);box-shadow:0 0 12px rgba(63,185,80,.25)}
+  .node.complete .inner{border-color:var(--green);background:rgba(63,185,80,.15)}.node.complete .lock{display:none}
+  .node:hover{transform:translate(-50%,-50%) scale(1.1)}
+  .node .label{position:absolute;top:calc(100% + 10px);white-space:nowrap;font-size:11px;font-weight:600;color:var(--text-muted);text-align:center;pointer-events:none;transition:color .3s}
+  .node.active .label{color:var(--blue)}.node.complete .label{color:var(--green)}
+  @keyframes pulse-ring{0%,100%{box-shadow:0 0 20px rgba(88,166,255,.25)}50%{box-shadow:0 0 32px rgba(88,166,255,.5)}}
+  .check-icon{display:none}.node.complete .check-icon{display:block}.node.complete .emoji{display:none}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.2);z-index:200;opacity:0;pointer-events:none;transition:opacity .3s}.overlay.open{opacity:1;pointer-events:auto}
+  .panel{position:fixed;top:0;right:0;bottom:0;width:var(--panel-w);max-width:92vw;background:#f0f1f3;border-left:1px solid var(--border);z-index:210;transform:translateX(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow-y:auto;box-shadow:-4px 0 24px rgba(0,0,0,.08)}.panel.open{transform:translateX(0)}
+  .panel-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px}
+  .panel-header .emoji-big{font-size:32px;line-height:1}.panel-header .meta{flex:1}.panel-header .meta h2{font-size:18px;font-weight:700;margin-bottom:4px}.panel-header .meta .time{font-size:12px;color:var(--text-muted)}
+  .panel-close{background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;padding:4px;line-height:1}.panel-close:hover{color:var(--text)}
+  .panel-body{flex:1;padding:20px 24px;display:flex;flex-direction:column;gap:16px}.panel-body .desc{font-size:14px;line-height:1.55;color:var(--text)}
+  .copy-block{position:relative;background:#e4e6ea;border:1px solid var(--border);border-radius:8px;padding:12px 44px 12px 14px;font-family:'Cascadia Code','Fira Code',monospace;font-size:12.5px;line-height:1.5;color:var(--text);white-space:pre-wrap;word-break:break-word}
+  .copy-btn{position:absolute;top:8px;right:8px;background:#d5d8dd;border:none;color:var(--text-muted);width:30px;height:30px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}.copy-btn:hover{background:var(--blue);color:#fff}.copy-btn.copied{background:var(--green);color:#fff}
+  .toggle-done{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:8px;border:2px solid var(--border);background:transparent;cursor:pointer;font-size:14px;font-weight:600;color:var(--text);transition:all .25s;width:100%}
+  .toggle-done .dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;transition:all .25s;flex-shrink:0}
+  .toggle-done.checked{border-color:var(--green);background:rgba(63,185,80,.08)}.toggle-done.checked .dot{background:var(--green);border-color:var(--green)}
+  .substeps{list-style:none;padding:0;display:flex;flex-direction:column;gap:6px}
+  .substeps li{font-size:13px;color:var(--text-muted);padding-left:20px;position:relative;line-height:1.5}
+  .substeps li::before{content:'';position:absolute;left:2px;top:7px;width:8px;height:8px;border-radius:50%;border:2px solid var(--border)}
+  .stuck-toggle{background:none;border:none;color:var(--orange);font-size:13px;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:6px}.stuck-toggle:hover{text-decoration:underline}
+  .stuck-content{max-height:0;overflow:hidden;transition:max-height .3s;font-size:13px;color:var(--text-muted);line-height:1.6}.stuck-content.open{max-height:500px}.stuck-content p{margin-top:8px}
+  .copy-group{display:flex;flex-direction:column;gap:8px}
+  .particle{position:fixed;width:8px;height:8px;border-radius:50%;pointer-events:none;z-index:999}
+  .confetti{position:fixed;width:10px;height:16px;pointer-events:none;z-index:999;border-radius:2px}
+  .rocket-anim{position:fixed;font-size:40px;z-index:999;pointer-events:none}
+  .banner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:rgba(240,241,243,.97);border:2px solid var(--green);border-radius:16px;padding:32px 56px;text-align:center;z-index:999;transition:transform .5s cubic-bezier(.175,.885,.32,1.275);box-shadow:0 12px 48px rgba(0,0,0,.15)}.banner.show{transform:translate(-50%,-50%) scale(1)}.banner h1{font-size:28px;margin-bottom:8px}.banner p{color:var(--text-muted);font-size:15px}
+  .panel::-webkit-scrollbar{width:6px}.panel::-webkit-scrollbar-track{background:transparent}.panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  .credit{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--text-muted);opacity:.6;pointer-events:none;letter-spacing:.3px;z-index:5}
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <div class="title"><span>RAPP Brainstem</span> — Training Quest</div>
+  <div class="progress-wrap"><div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div><div class="progress-label" id="progressLabel">0 of 52</div></div>
+  <button class="btn-reset" onclick="resetProgress()">Reset Progress</button>
+</div>
+<div class="phase-label p1">🥚 Hatching</div>
+<div class="phase-label p2">🧠 Core Skills</div>
+<div class="phase-label p3">⚡ Your Agents</div>
+<div class="phase-label p4">🧬 Mastery</div>
+<div class="phase-divider d1"></div><div class="phase-divider d2"></div><div class="phase-divider d3"></div>
+<div class="quest-map" id="questMap"><svg class="path-svg" id="pathSvg" preserveAspectRatio="none"></svg></div>
+<div class="overlay" id="overlay" onclick="closePanel()"></div>
+<div class="panel" id="panel"><div class="panel-header"><div class="emoji-big" id="panelEmoji"></div><div class="meta"><h2 id="panelTitle"></h2><div class="time" id="panelTime"></div></div><button class="panel-close" onclick="closePanel()">✕</button></div><div class="panel-body" id="panelBody"></div></div>
+<div class="banner" id="banner"><h1>🧬 Training Complete!</h1><p>You've mastered your brainstem.<br>Your rappter is fully grown.</p></div>
+<div class="credit">RAPP Brainstem — Training Quest · Generated 2026-05-24 03:40</div>
+<script>
+const CHECKPOINTS = [
+  {
+    "id": "auth-setup",
+    "phase": 1,
+    "emoji": "\ud83e\udd5a",
+    "title": "Hatch Your Brainstem",
+    "time": "5 min",
+    "desc": "Your brainstem needs a GitHub account with Copilot access to come alive. No API keys \u2014 just authenticate with GitHub and start the server.",
+    "toggle": "Brainstem is running \u2713",
+    "copies": [
+      {
+        "label": "Mac/Linux",
+        "text": "cd rapp_brainstem && ./start.sh"
+      },
+      {
+        "label": "Windows",
+        "text": "cd rapp_brainstem; .\\start.ps1"
+      },
+      {
+        "label": "Direct",
+        "text": "python brainstem.py"
+      }
+    ],
+    "stuck": "Run gh auth login first. If you see 'Sign in with GitHub' in the web UI, click it for device-code OAuth. The brainstem auto-detects tokens from gh CLI, GITHUB_TOKEN env var, or .copilot_token file."
+  },
+  {
+    "id": "first-chat",
+    "phase": 1,
+    "emoji": "\ud83d\udcac",
+    "title": "First Conversation",
+    "time": "3 min",
+    "desc": "Open localhost:7071 in your browser. Type anything and see your brainstem respond. It uses your soul.md personality on every turn.",
+    "toggle": "Had my first conversation \u2713",
+    "copies": [
+      {
+        "label": "Say hello",
+        "text": "Hello! What can you do?"
+      },
+      {
+        "label": "Test tool calling",
+        "text": "What agents do you have loaded right now?"
+      },
+      {
+        "label": "Test reasoning",
+        "text": "Explain the difference between RAG and fine-tuning in one paragraph"
+      }
+    ],
+    "stuck": "Make sure brainstem.py is running (check your terminal). If you see 'unauthenticated', click 'Sign in with GitHub'. The brainstem runs 100% locally \u2014 your data never leaves your machine except for the LLM API call."
+  },
+  {
+    "id": "customize-soul",
+    "phase": 1,
+    "emoji": "\ud83d\udc7b",
+    "title": "Customize Your Soul",
+    "time": "5 min",
+    "desc": "Edit soul.md to change how your brainstem talks, what it knows, and how it behaves. Changes are live immediately \u2014 no restart needed.",
+    "toggle": "Customized my soul \u2713",
+    "copies": [
+      {
+        "label": "Example personality",
+        "text": "You are a senior solutions architect. Speak with precision but use simple analogies. Always consider security, scalability, and cost."
+      }
+    ],
+    "stuck": "The soul file is at rapp_brainstem/soul.md. Set SOUL_PATH in .env to point elsewhere. Reloads every chat request \u2014 no restart needed."
+  },
+  {
+    "id": "switch-models",
+    "phase": 1,
+    "emoji": "\ud83d\udd04",
+    "title": "Switch Models",
+    "time": "3 min",
+    "desc": "Click the model name in the top-right of the web UI to switch between GPT-4o, Claude, GPT-4.1, and more. No restart needed.",
+    "toggle": "Switched models \u2713",
+    "copies": [
+      {
+        "label": "List models",
+        "text": "curl http://localhost:7071/models"
+      },
+      {
+        "label": "Check health",
+        "text": "curl http://localhost:7071/health"
+      }
+    ],
+    "stuck": "The model picker is in the top-right corner of the chat UI. Default is gpt-4o from .env GITHUB_MODEL. Falls back automatically if a model fails."
+  },
+  {
+    "id": "memory-system",
+    "phase": 2,
+    "emoji": "\ud83e\udde0",
+    "title": "Memory System",
+    "time": "10 min",
+    "desc": "Your brainstem has persistent memory. Tell it things about yourself \u2014 it remembers across sessions. ManageMemory stores, ContextMemory recalls into every turn.",
+    "toggle": "Memory is working \u2713",
+    "copies": [
+      {
+        "label": "Store a preference",
+        "text": "Remember that I prefer Python over JavaScript, and I always want type hints in my code"
+      },
+      {
+        "label": "Store project context",
+        "text": "Remember that I'm working on a healthcare AI platform called MediAssist"
+      },
+      {
+        "label": "Test recall",
+        "text": "What do you remember about me?"
+      }
+    ],
+    "stuck": "Memory is stored as JSON in .brainstem_data/. ManageMemory writes when you say 'remember that...'. ContextMemory injects memories into the system prompt every turn via system_context()."
+  },
+  {
+    "id": "browse-agents",
+    "phase": 2,
+    "emoji": "\ud83e\udd16",
+    "title": "Meet Your Agents",
+    "time": "5 min",
+    "desc": "Open localhost:7071 and click the \ud83e\udd16 icon in the top-right toolbar. This is your agent control panel \u2014 browse, export, and delete agents.",
+    "toggle": "I know my agents \u2713",
+    "copies": [
+      {
+        "label": "List agents",
+        "text": "What agents do you have loaded? Give me a one-line description of each."
+      },
+      {
+        "label": "API check",
+        "text": "curl http://localhost:7071/agents"
+      }
+    ],
+    "stuck": "The agents panel is the \ud83e\udd16 icon in the top-right toolbar. Agents are *_agent.py files in agents/ (not subfolders). They reload from disk on every chat \u2014 no restart needed."
+  },
+  {
+    "id": "agent-account-intelligence",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Account Intelligence",
+    "time": "5 min",
+    "desc": "360-degree account briefings with stakeholder mapping, competitive analysis, and deal risk assessment.",
+    "toggle": "Tried Account Intelligence \u2713",
+    "copies": [
+      {
+        "label": "What can Account Intelligence do?",
+        "text": "Tell me everything about the Account Intelligence agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Account Intelligence agent, parameters: see description"
+  },
+  {
+    "id": "agent-account-intelligence-orchestrator",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Account Intelligence Orchestrator",
+    "time": "5 min",
+    "desc": "Coordinates multi-agent pipelines for 360-degree account intelligence briefings.",
+    "toggle": "Tried Account Intelligence Orchestrator \u2713",
+    "copies": [
+      {
+        "label": "What can Account Intelligence Orchestrator do?",
+        "text": "Tell me everything about the Account Intelligence Orchestrator agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Account Intelligence Orchestrator agent, parameters: see description"
+  },
+  {
+    "id": "agent-agentgenerator",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "AgentGenerator",
+    "time": "5 min",
+    "desc": "Auto-generates new RAPP agents from configurations and specifications.",
+    "toggle": "Tried AgentGenerator \u2713",
+    "copies": [
+      {
+        "label": "Try AgentGenerator",
+        "text": "Use the AgentGenerator agent to help me with something"
+      },
+      {
+        "label": "What can AgentGenerator do?",
+        "text": "Tell me everything about the AgentGenerator agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "AgentGenerator agent, parameters: action, agent_description, agent_name, category, items"
+  },
+  {
+    "id": "agent-agent-team",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Agent Team",
+    "time": "5 min",
+    "desc": "The persona-routing brain of the Agent Team Starter Kit as a",
+    "toggle": "Tried Agent Team \u2713",
+    "copies": [
+      {
+        "label": "What can Agent Team do?",
+        "text": "Tell me everything about the Agent Team agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Agent Team agent, parameters: see description"
+  },
+  {
+    "id": "agent-agenttranspiler",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "AgentTranspiler",
+    "time": "5 min",
+    "desc": "Converts agents between platforms: M365 Copilot, Copilot Studio, Azure AI Foundry.",
+    "toggle": "Tried AgentTranspiler \u2713",
+    "copies": [
+      {
+        "label": "Try AgentTranspiler",
+        "text": "Use the AgentTranspiler agent to help me with something"
+      },
+      {
+        "label": "What can AgentTranspiler do?",
+        "text": "Tell me everything about the AgentTranspiler agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "AgentTranspiler agent, parameters: action, agent_name, target_platform, function_app_url, save_files"
+  },
+  {
+    "id": "agent-{display_name}",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "{display_name}",
+    "time": "5 min",
+    "desc": "Build, validate, test, and publish single-file RAPP agents.",
+    "toggle": "Tried {display_name} \u2713",
+    "copies": [
+      {
+        "label": "Try {display_name}",
+        "text": "Use the {display_name} agent to help me with something"
+      },
+      {
+        "label": "What can {display_name} do?",
+        "text": "Tell me everything about the {display_name} agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "{display_name} agent, parameters: action, agent_path, template"
+  },
+  {
+    "id": "agent-cardforger",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "CardForger",
+    "time": "5 min",
+    "desc": "Mints a RAR-compatible card (name + impact/novelty/compoundability stats + ability + lore + art_seed) from a Drop. Every Drop is a collectible.",
+    "toggle": "Tried CardForger \u2713",
+    "copies": [
+      {
+        "label": "Try CardForger",
+        "text": "Use the CardForger agent to help me with something"
+      },
+      {
+        "label": "What can CardForger do?",
+        "text": "Tell me everything about the CardForger agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "CardForger agent, parameters: hook, body, channel"
+  },
+  {
+    "id": "agent-chief-of-staff",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Chief Of Staff",
+    "time": "5 min",
+    "desc": "Personal AI executive partner \u2014 live M365-grounded brief, triage, meeting prep, commitments, drafts, weekly review.",
+    "toggle": "Tried Chief Of Staff \u2713",
+    "copies": [
+      {
+        "label": "What can Chief Of Staff do?",
+        "text": "Tell me everything about the Chief Of Staff agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Chief Of Staff agent, parameters: see description"
+  },
+  {
+    "id": "agent-competitive-intelligence",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Competitive Intelligence",
+    "time": "5 min",
+    "desc": "Analyzes competitive landscapes, win/loss patterns, and generates battlecards for enterprise deals.",
+    "toggle": "Tried Competitive Intelligence \u2713",
+    "copies": [
+      {
+        "label": "What can Competitive Intelligence do?",
+        "text": "Tell me everything about the Competitive Intelligence agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Competitive Intelligence agent, parameters: see description"
+  },
+  {
+    "id": "agent-copilot-studio-forge",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Copilot Studio Forge",
+    "time": "5 min",
+    "desc": "Translate a RAPP swarm (singleton .py) into a validated Microsoft",
+    "toggle": "Tried Copilot Studio Forge \u2713",
+    "copies": [
+      {
+        "label": "What can Copilot Studio Forge do?",
+        "text": "Tell me everything about the Copilot Studio Forge agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Copilot Studio Forge agent, parameters: see description"
+  },
+  {
+    "id": "agent-copilotstudiotranspiler",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "CopilotStudioTranspiler",
+    "time": "5 min",
+    "desc": "Transpiles RAPP Python agents to fully native Copilot Studio solutions without Azure Function dependency.",
+    "toggle": "Tried CopilotStudioTranspiler \u2713",
+    "copies": [
+      {
+        "label": "Try CopilotStudioTranspiler",
+        "text": "Use the CopilotStudioTranspiler agent to help me with something"
+      },
+      {
+        "label": "What can CopilotStudioTranspiler do?",
+        "text": "Tell me everything about the CopilotStudioTranspiler agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "CopilotStudioTranspiler agent, parameters: action, agent_name, agent_file, pattern, items"
+  },
+  {
+    "id": "agent-@aibast-agents-library/customer-360-speech",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "@aibast-agents-library/customer-360-speech",
+    "time": "5 min",
+    "desc": "Unified customer profiles with interaction history, sentiment analysis, and next-best-action recommendations.",
+    "toggle": "Tried @aibast-agents-library/customer-360-speech \u2713",
+    "copies": [
+      {
+        "label": "Try @aibast-agents-library/customer-360-speech",
+        "text": "Use the @aibast-agents-library/customer-360-speech agent to help me with something"
+      },
+      {
+        "label": "What can @aibast-agents-library/customer-360-speech do?",
+        "text": "Tell me everything about the @aibast-agents-library/customer-360-speech agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "@aibast-agents-library/customer-360-speech agent, parameters: operation, customer_id"
+  },
+  {
+    "id": "agent-@aibast-agents-library/customer-sentiment-churn",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "@aibast-agents-library/customer-sentiment-churn",
+    "time": "5 min",
+    "desc": "Customer sentiment analysis, churn prediction, retention action planning, and segment analytics for financial services.",
+    "toggle": "Tried @aibast-agents-library/customer-sentiment-churn \u2713",
+    "copies": [
+      {
+        "label": "What can @aibast-agents-library/customer-sentiment-churn do?",
+        "text": "Tell me everything about the @aibast-agents-library/customer-sentiment-churn agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "@aibast-agents-library/customer-sentiment-churn agent, parameters: see description"
+  },
+  {
+    "id": "agent-downloadedagentguide",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Downloadedagentguide",
+    "time": "5 min",
+    "desc": "How to use a downloaded agent file",
+    "toggle": "Tried Downloadedagentguide \u2713",
+    "copies": [
+      {
+        "label": "Try Downloadedagentguide",
+        "text": "Use the Downloadedagentguide agent to help me with something"
+      },
+      {
+        "label": "What can Downloadedagentguide do?",
+        "text": "Tell me everything about the Downloadedagentguide agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Downloadedagentguide agent, parameters: query, path"
+  },
+  {
+    "id": "agent-briefscout",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "BriefScout",
+    "time": "5 min",
+    "desc": "Four-agent pipeline that produces polished executive briefs on any topic.",
+    "toggle": "Tried BriefScout \u2713",
+    "copies": [
+      {
+        "label": "Try BriefScout",
+        "text": "Use the BriefScout agent to help me with something"
+      },
+      {
+        "label": "What can BriefScout do?",
+        "text": "Tell me everything about the BriefScout agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "BriefScout agent, parameters: topic"
+  },
+  {
+    "id": "agent-@aibast-agents-library/financial-advisor-copilot",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "@aibast-agents-library/financial-advisor-copilot",
+    "time": "5 min",
+    "desc": "Financial advisor support with client reviews, portfolio summaries, recommendation engine, and compliance checks.",
+    "toggle": "Tried @aibast-agents-library/financial-advisor-copilot \u2713",
+    "copies": [
+      {
+        "label": "Try @aibast-agents-library/financial-advisor-copilot",
+        "text": "Use the @aibast-agents-library/financial-advisor-copilot agent to help me with something"
+      },
+      {
+        "label": "What can @aibast-agents-library/financial-advisor-copilot do?",
+        "text": "Tell me everything about the @aibast-agents-library/financial-advisor-copilot agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "@aibast-agents-library/financial-advisor-copilot agent, parameters: operation, client_id"
+  },
+  {
+    "id": "agent-githubagentlibrary",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "GitHubAgentLibrary",
+    "time": "5 min",
+    "desc": "Browse, search, and install agents from the RAPP Agent Repo via chat. The autonomous package manager.",
+    "toggle": "Tried GitHubAgentLibrary \u2713",
+    "copies": [
+      {
+        "label": "Try GitHubAgentLibrary",
+        "text": "Use the GitHubAgentLibrary agent to help me with something"
+      },
+      {
+        "label": "What can GitHubAgentLibrary do?",
+        "text": "Tell me everything about the GitHubAgentLibrary agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "GitHubAgentLibrary agent, parameters: action, agent_id, items, group_name, guid"
+  },
+  {
+    "id": "agent-hackernews",
+    "phase": 3,
+    "emoji": "\ud83d\udd2c",
+    "title": "HackerNews",
+    "time": "5 min",
+    "desc": "Fetches the current top stories from Hacker News. Returns title,",
+    "toggle": "Tried HackerNews \u2713",
+    "copies": [
+      {
+        "label": "Try HackerNews",
+        "text": "Use the HackerNews agent to help me with something"
+      },
+      {
+        "label": "What can HackerNews do?",
+        "text": "Tell me everything about the HackerNews agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "HackerNews agent, parameters: count"
+  },
+  {
+    "id": "agent-it-helpdesk",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "It Helpdesk",
+    "time": "5 min",
+    "desc": "AI-powered IT helpdesk with automated troubleshooting, knowledge retrieval, remote remediation, and ticket management.",
+    "toggle": "Tried It Helpdesk \u2713",
+    "copies": [
+      {
+        "label": "What can It Helpdesk do?",
+        "text": "Tell me everything about the It Helpdesk agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "It Helpdesk agent, parameters: see description"
+  },
+  {
+    "id": "agent-{agent_name}",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "{agent_name}",
+    "time": "5 min",
+    "desc": "Creates new RAPP agents or swarms from natural-language descriptions. Generates, saves, and hot-loads them. Output is dual-compatible with brainstem and RAR registry.",
+    "toggle": "Tried {agent_name} \u2713",
+    "copies": [
+      {
+        "label": "What can {agent_name} do?",
+        "text": "Tell me everything about the {agent_name} agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "{agent_name} agent, parameters: see description"
+  },
+  {
+    "id": "agent-@aibast-agents-library/loan-origination-assistant",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "@aibast-agents-library/loan-origination-assistant",
+    "time": "5 min",
+    "desc": "Loan origination support with application review, credit analysis, document verification, and decision recommendations.",
+    "toggle": "Tried @aibast-agents-library/loan-origination-assistant \u2713",
+    "copies": [
+      {
+        "label": "Try @aibast-agents-library/loan-origination-assistant",
+        "text": "Use the @aibast-agents-library/loan-origination-assistant agent to help me with something"
+      },
+      {
+        "label": "What can @aibast-agents-library/loan-origination-assistant do?",
+        "text": "Tell me everything about the @aibast-agents-library/loan-origination-assistant agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "@aibast-agents-library/loan-origination-assistant agent, parameters: operation, application_id"
+  },
+  {
+    "id": "agent-markdown-to-slides",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Markdown To Slides",
+    "time": "5 min",
+    "desc": "Converts markdown documents into structured JSON slide decks for presentations or video rendering.",
+    "toggle": "Tried Markdown To Slides \u2713",
+    "copies": [
+      {
+        "label": "Try Markdown To Slides",
+        "text": "Use the Markdown To Slides agent to help me with something"
+      },
+      {
+        "label": "What can Markdown To Slides do?",
+        "text": "Tell me everything about the Markdown To Slides agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Markdown To Slides agent, parameters: markdown, title, style"
+  },
+  {
+    "id": "agent-next-best-action",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Next Best Action",
+    "time": "5 min",
+    "desc": "Recommends prioritized actions, sequences tasks, forecasts impact, and optimizes rep assignments.",
+    "toggle": "Tried Next Best Action \u2713",
+    "copies": [
+      {
+        "label": "What can Next Best Action do?",
+        "text": "Tell me everything about the Next Best Action agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Next Best Action agent, parameters: see description"
+  },
+  {
+    "id": "agent-@aibast-agents-library/omnichannel-engagement",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "@aibast-agents-library/omnichannel-engagement",
+    "time": "5 min",
+    "desc": "Omnichannel engagement analytics with channel performance, journey mapping, optimization, and campaign attribution.",
+    "toggle": "Tried @aibast-agents-library/omnichannel-engagement \u2713",
+    "copies": [
+      {
+        "label": "Try @aibast-agents-library/omnichannel-engagement",
+        "text": "Use the @aibast-agents-library/omnichannel-engagement agent to help me with something"
+      },
+      {
+        "label": "What can @aibast-agents-library/omnichannel-engagement do?",
+        "text": "Tell me everything about the @aibast-agents-library/omnichannel-engagement agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "@aibast-agents-library/omnichannel-engagement agent, parameters: operation, channel, campaign_id"
+  },
+  {
+    "id": "agent-publisher",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Publisher",
+    "time": "5 min",
+    "desc": "Indie-press publisher. Takes edited prose plus a CEO note and outputs publication-ready markdown with YAML frontmatter.",
+    "toggle": "Tried Publisher \u2713",
+    "copies": [
+      {
+        "label": "Try Publisher",
+        "text": "Use the Publisher agent to help me with something"
+      },
+      {
+        "label": "What can Publisher do?",
+        "text": "Tell me everything about the Publisher agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Publisher agent, parameters: input, ceo_note, title, author"
+  },
+  {
+    "id": "agent-reviewer",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Reviewer",
+    "time": "5 min",
+    "desc": "Cold-read reviewer. Returns a 1-5 score, the strongest single line, and whether they would keep reading.",
+    "toggle": "Tried Reviewer \u2713",
+    "copies": [
+      {
+        "label": "Try Reviewer",
+        "text": "Use the Reviewer agent to help me with something"
+      },
+      {
+        "label": "What can Reviewer do?",
+        "text": "Tell me everything about the Reviewer agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Reviewer agent, parameters: input"
+  },
+  {
+    "id": "agent-personalmemory",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "PersonalMemory",
+    "time": "5 min",
+    "desc": "A personal memory anchor for the user",
+    "toggle": "Tried PersonalMemory \u2713",
+    "copies": [
+      {
+        "label": "Try PersonalMemory",
+        "text": "Use the PersonalMemory agent to help me with something"
+      },
+      {
+        "label": "What can PersonalMemory do?",
+        "text": "Tell me everything about the PersonalMemory agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "PersonalMemory agent, parameters: query"
+  },
+  {
+    "id": "agent-personalmemory",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Personalmemory",
+    "time": "5 min",
+    "desc": "A personal memory anchor for the user. Call this when the user wants to create, list,",
+    "toggle": "Tried Personalmemory \u2713",
+    "copies": [
+      {
+        "label": "Try Personalmemory",
+        "text": "Use the Personalmemory agent to help me with something"
+      },
+      {
+        "label": "What can Personalmemory do?",
+        "text": "Tell me everything about the Personalmemory agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Personalmemory agent, parameters: action, item_id, title, timestamp"
+  },
+  {
+    "id": "agent-@aibast-agents-library/portfolio-rebalancing",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "@aibast-agents-library/portfolio-rebalancing",
+    "time": "5 min",
+    "desc": "Portfolio rebalancing with drift analysis, trade recommendations, tax impact assessment, and execution planning.",
+    "toggle": "Tried @aibast-agents-library/portfolio-rebalancing \u2713",
+    "copies": [
+      {
+        "label": "Try @aibast-agents-library/portfolio-rebalancing",
+        "text": "Use the @aibast-agents-library/portfolio-rebalancing agent to help me with something"
+      },
+      {
+        "label": "What can @aibast-agents-library/portfolio-rebalancing do?",
+        "text": "Tell me everything about the @aibast-agents-library/portfolio-rebalancing agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "@aibast-agents-library/portfolio-rebalancing agent, parameters: operation, portfolio_id"
+  },
+  {
+    "id": "agent-prompt-to-video",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Prompt To Video",
+    "time": "5 min",
+    "desc": "Renders videos from structured scene descriptions using Remotion \u2014 title, content, quote, and list scenes with style presets.",
+    "toggle": "Tried Prompt To Video \u2713",
+    "copies": [
+      {
+        "label": "What can Prompt To Video do?",
+        "text": "Tell me everything about the Prompt To Video agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Prompt To Video agent, parameters: see description"
+  },
+  {
+    "id": "agent-proposalcopilotagent",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "ProposalCopilotAgent",
+    "time": "5 min",
+    "desc": "Generates competitive proposals with pricing models, win-theme analysis from historical data, and competitive positioning against known bidders.",
+    "toggle": "Tried ProposalCopilotAgent \u2713",
+    "copies": [
+      {
+        "label": "What can ProposalCopilotAgent do?",
+        "text": "Tell me everything about the ProposalCopilotAgent agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "ProposalCopilotAgent agent, parameters: see description"
+  },
+  {
+    "id": "agent-rapp",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "RAPP",
+    "time": "5 min",
+    "desc": "Full RAPP pipeline \u2014 transcript to agent, discovery, MVP, code gen, quality gates QG1-QG6, PDF reports.",
+    "toggle": "Tried RAPP \u2713",
+    "copies": [
+      {
+        "label": "Try RAPP",
+        "text": "Use the RAPP agent to help me with something"
+      },
+      {
+        "label": "What can RAPP do?",
+        "text": "Tell me everything about the RAPP agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "RAPP agent, parameters: action"
+  },
+  {
+    "id": "agent-rappter-engine",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Rappter Engine",
+    "time": "5 min",
+    "desc": "Base agent for building data-driven content engines. Define rules as data, override tick(), get an autonomous engine with CLI and Brainstem harness.",
+    "toggle": "Tried Rappter Engine \u2713",
+    "copies": [
+      {
+        "label": "Try Rappter Engine",
+        "text": "Use the Rappter Engine agent to help me with something"
+      },
+      {
+        "label": "What can Rappter Engine do?",
+        "text": "Tell me everything about the Rappter Engine agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Rappter Engine agent, parameters: operation, count"
+  },
+  {
+    "id": "agent-rappterbook",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Rappterbook",
+    "time": "5 min",
+    "desc": "Read-only client for Rappterbook \u2014 the social network for AI agents. Fetch profiles, trending posts, stats, and channels.",
+    "toggle": "Tried Rappterbook \u2713",
+    "copies": [
+      {
+        "label": "Try Rappterbook",
+        "text": "Use the Rappterbook agent to help me with something"
+      },
+      {
+        "label": "What can Rappterbook do?",
+        "text": "Tell me everything about the Rappterbook agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Rappterbook agent, parameters: command"
+  },
+  {
+    "id": "agent-recon",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Recon",
+    "time": "5 min",
+    "desc": "URL intelligence scanner. Point it at any URL to get a full recon",
+    "toggle": "Tried Recon \u2713",
+    "copies": [
+      {
+        "label": "Try Recon",
+        "text": "Use the Recon agent to help me with something"
+      },
+      {
+        "label": "What can Recon do?",
+        "text": "Tell me everything about the Recon agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Recon agent, parameters: action, url, url2"
+  },
+  {
+    "id": "agent-supply-chain-disruption-alert",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Supply Chain Disruption Alert",
+    "time": "5 min",
+    "desc": "Monitors supply chain networks for disruption events, performs",
+    "toggle": "Tried Supply Chain Disruption Alert \u2713",
+    "copies": [
+      {
+        "label": "What can Supply Chain Disruption Alert do?",
+        "text": "Tell me everything about the Supply Chain Disruption Alert agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Supply Chain Disruption Alert agent, parameters: see description"
+  },
+  {
+    "id": "agent-swarmfactory",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "SwarmFactory",
+    "time": "5 min",
+    "desc": "Generate, build, install, list, and uninstall RAPP swarms.",
+    "toggle": "Tried SwarmFactory \u2713",
+    "copies": [
+      {
+        "label": "What can SwarmFactory do?",
+        "text": "Tell me everything about the SwarmFactory agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "SwarmFactory agent, parameters: see description"
+  },
+  {
+    "id": "agent-topic-wizard",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "Topic Wizard",
+    "time": "5 min",
+    "desc": "Step-by-step UI for converting rapp_brainstem/agents/*.py into",
+    "toggle": "Tried Topic Wizard \u2713",
+    "copies": [
+      {
+        "label": "What can Topic Wizard do?",
+        "text": "Tell me everything about the Topic Wizard agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "Topic Wizard agent, parameters: see description"
+  },
+  {
+    "id": "agent-@aibast-agents-library/underwriting-support",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "@aibast-agents-library/underwriting-support",
+    "time": "5 min",
+    "desc": "Insurance underwriting support with risk evaluation, pricing recommendations, guideline compliance, and exception review.",
+    "toggle": "Tried @aibast-agents-library/underwriting-support \u2713",
+    "copies": [
+      {
+        "label": "Try @aibast-agents-library/underwriting-support",
+        "text": "Use the @aibast-agents-library/underwriting-support agent to help me with something"
+      },
+      {
+        "label": "What can @aibast-agents-library/underwriting-support do?",
+        "text": "Tell me everything about the @aibast-agents-library/underwriting-support agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "@aibast-agents-library/underwriting-support agent, parameters: operation, application_id"
+  },
+  {
+    "id": "agent-vibebuilder",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "VibeBuilder",
+    "time": "5 min",
+    "desc": "Builds a complete rapplication (agent + service) from a natural",
+    "toggle": "Tried VibeBuilder \u2713",
+    "copies": [
+      {
+        "label": "What can VibeBuilder do?",
+        "text": "Tell me everything about the VibeBuilder agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "VibeBuilder agent, parameters: see description"
+  },
+  {
+    "id": "agent-@aibast-agents-library/wealth-insights-generator",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "@aibast-agents-library/wealth-insights-generator",
+    "time": "5 min",
+    "desc": "Wealth management insights with market briefs, client analytics, opportunity alerts, and performance attribution.",
+    "toggle": "Tried @aibast-agents-library/wealth-insights-generator \u2713",
+    "copies": [
+      {
+        "label": "Try @aibast-agents-library/wealth-insights-generator",
+        "text": "Use the @aibast-agents-library/wealth-insights-generator agent to help me with something"
+      },
+      {
+        "label": "What can @aibast-agents-library/wealth-insights-generator do?",
+        "text": "Tell me everything about the @aibast-agents-library/wealth-insights-generator agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "@aibast-agents-library/wealth-insights-generator agent, parameters: operation, client_id"
+  },
+  {
+    "id": "agent-workiq",
+    "phase": 3,
+    "emoji": "\u2728",
+    "title": "WorkIQ",
+    "time": "5 min",
+    "desc": "Access Microsoft 365 data using natural language queries.",
+    "toggle": "Tried WorkIQ \u2713",
+    "copies": [
+      {
+        "label": "Try WorkIQ",
+        "text": "Use the WorkIQ agent to help me with something"
+      },
+      {
+        "label": "What can WorkIQ do?",
+        "text": "Tell me everything about the WorkIQ agent \u2014 what does it do and how do I use it?"
+      }
+    ],
+    "learn": "WorkIQ agent, parameters: query, tenant_id, data_type"
+  },
+  {
+    "id": "agent-anatomy",
+    "phase": 4,
+    "emoji": "\ud83d\udd2c",
+    "title": "Agent Anatomy",
+    "time": "10 min",
+    "desc": "Understand the 3 building blocks: name (identity), metadata (what the LLM sees), perform() (what happens when called). Plus optional system_context() for always-on injection.",
+    "toggle": "I understand agent anatomy \u2713",
+    "copies": [
+      {
+        "label": "View BasicAgent",
+        "text": "Show me the BasicAgent base class code"
+      },
+      {
+        "label": "What is system_context?",
+        "text": "Explain system_context() \u2014 which agents use it and why?"
+      }
+    ],
+    "stuck": "Every agent extends BasicAgent. The description in metadata tells the LLM WHEN to call it. perform() must accept **kwargs. Returns a string. Override system_context() to inject text into the system prompt every turn."
+  },
+  {
+    "id": "write-agent",
+    "phase": 4,
+    "emoji": "\ud83d\udee0\ufe0f",
+    "title": "Create an Agent",
+    "time": "10 min",
+    "desc": "Just ask your brainstem to create one! Describe what you want in plain English \u2014 it writes the .py file and drops it in agents/. Live on the next chat.",
+    "toggle": "Created an agent \u2713",
+    "copies": [
+      {
+        "label": "Create an agent",
+        "text": "Create me a new agent called QuoteOfTheDay that returns an inspiring quote when I ask for motivation. Save it to the agents folder."
+      },
+      {
+        "label": "Create with params",
+        "text": "Create me a new agent called UnitConverter that converts between metric and imperial units."
+      },
+      {
+        "label": "Iterate",
+        "text": "Change the QuoteOfTheDay agent so it has categories: motivation, humor, philosophy."
+      }
+    ],
+    "stuck": "Just describe the agent you want in chat. Your brainstem knows the BasicAgent pattern. Key rules: file named *_agent.py, class extends BasicAgent, perform() accepts **kwargs, returns a string. Auto-installs missing pip packages."
+  },
+  {
+    "id": "swap-agents",
+    "phase": 4,
+    "emoji": "\ud83d\udd04",
+    "title": "Swap & Customize",
+    "time": "5 min",
+    "desc": "Hot-swap agents via the web UI: click \ud83e\udd16 in the toolbar, \ud83d\uddd1\ufe0f to delete, \u2193 to export. Move files to agents/experimental/ to disable without deleting.",
+    "toggle": "Swapped agents \u2713",
+    "copies": [
+      {
+        "label": "List loaded",
+        "text": "curl http://localhost:7071/agents"
+      },
+      {
+        "label": "Ask brainstem",
+        "text": "How many agents do you have loaded right now?"
+      }
+    ],
+    "stuck": "agents/experimental/ is excluded from auto-loading. Set AGENTS_PATH in .env for per-project agent sets. Agents reload from disk on every chat request."
+  },
+  {
+    "id": "share-agents",
+    "phase": 4,
+    "emoji": "\ud83e\udd1d",
+    "title": "Share & Ecosystem",
+    "time": "5 min",
+    "desc": "Drag a .py file onto the chat page at localhost:7071 to import. Click \u2193 to export. Agents are self-contained Python \u2014 share via email, Slack, or git.",
+    "toggle": "Training quest complete \ud83c\udfc6",
+    "copies": [
+      {
+        "label": "Export",
+        "text": "curl http://localhost:7071/agents/export/deep_brief_agent.py -o deep_brief_agent.py"
+      },
+      {
+        "label": "Import",
+        "text": "curl -X POST http://localhost:7071/agents/import -F \"file=@my_agent.py\""
+      },
+      {
+        "label": "RAR registry",
+        "text": "What agents are available in the RAR registry?"
+      }
+    ],
+    "stuck": "The agents panel (\ud83e\udd16 icon, top-right) has \u2193 export and \ud83d\uddd1\ufe0f delete buttons. Drag .py files onto the page to import. The RARRemoteAgent connects to the community RAPP Agent Registry."
+  }
+];
+const POSITIONS = [
+  {
+    "x": 3.7,
+    "y": 16.0
+  },
+  {
+    "x": 11.3,
+    "y": 38.0
+  },
+  {
+    "x": 3.7,
+    "y": 60.0
+  },
+  {
+    "x": 11.3,
+    "y": 82.0
+  },
+  {
+    "x": 18.6,
+    "y": 16.0
+  },
+  {
+    "x": 26.4,
+    "y": 82.0
+  },
+  {
+    "x": 39.7,
+    "y": 16.0
+  },
+  {
+    "x": 75.3,
+    "y": 17.6
+  },
+  {
+    "x": 39.7,
+    "y": 19.2
+  },
+  {
+    "x": 75.3,
+    "y": 20.8
+  },
+  {
+    "x": 39.7,
+    "y": 22.4
+  },
+  {
+    "x": 75.3,
+    "y": 24.0
+  },
+  {
+    "x": 39.7,
+    "y": 25.7
+  },
+  {
+    "x": 75.3,
+    "y": 27.3
+  },
+  {
+    "x": 39.7,
+    "y": 28.9
+  },
+  {
+    "x": 75.3,
+    "y": 30.5
+  },
+  {
+    "x": 39.7,
+    "y": 32.1
+  },
+  {
+    "x": 75.3,
+    "y": 33.7
+  },
+  {
+    "x": 39.7,
+    "y": 35.3
+  },
+  {
+    "x": 75.3,
+    "y": 36.9
+  },
+  {
+    "x": 39.7,
+    "y": 38.5
+  },
+  {
+    "x": 75.3,
+    "y": 40.1
+  },
+  {
+    "x": 39.7,
+    "y": 41.8
+  },
+  {
+    "x": 75.3,
+    "y": 43.4
+  },
+  {
+    "x": 39.7,
+    "y": 45.0
+  },
+  {
+    "x": 75.3,
+    "y": 46.6
+  },
+  {
+    "x": 39.7,
+    "y": 48.2
+  },
+  {
+    "x": 75.3,
+    "y": 49.8
+  },
+  {
+    "x": 39.7,
+    "y": 51.4
+  },
+  {
+    "x": 75.3,
+    "y": 53.0
+  },
+  {
+    "x": 39.7,
+    "y": 54.6
+  },
+  {
+    "x": 75.3,
+    "y": 56.2
+  },
+  {
+    "x": 39.7,
+    "y": 57.9
+  },
+  {
+    "x": 75.3,
+    "y": 59.5
+  },
+  {
+    "x": 39.7,
+    "y": 61.1
+  },
+  {
+    "x": 75.3,
+    "y": 62.7
+  },
+  {
+    "x": 39.7,
+    "y": 64.3
+  },
+  {
+    "x": 75.3,
+    "y": 65.9
+  },
+  {
+    "x": 39.7,
+    "y": 67.5
+  },
+  {
+    "x": 75.3,
+    "y": 69.1
+  },
+  {
+    "x": 39.7,
+    "y": 70.7
+  },
+  {
+    "x": 75.3,
+    "y": 72.3
+  },
+  {
+    "x": 39.7,
+    "y": 74.0
+  },
+  {
+    "x": 75.3,
+    "y": 75.6
+  },
+  {
+    "x": 39.7,
+    "y": 77.2
+  },
+  {
+    "x": 75.3,
+    "y": 78.8
+  },
+  {
+    "x": 39.7,
+    "y": 80.4
+  },
+  {
+    "x": 75.3,
+    "y": 82.0
+  },
+  {
+    "x": 88.7,
+    "y": 16.0
+  },
+  {
+    "x": 96.3,
+    "y": 38.0
+  },
+  {
+    "x": 88.7,
+    "y": 60.0
+  },
+  {
+    "x": 96.3,
+    "y": 82.0
+  }
+];
+const STORAGE_KEY = 'brainstem-quest-' + btoa('RAPP Brainstem').slice(0,12);
+let state = loadState();
+function loadState(){try{const s=localStorage.getItem(STORAGE_KEY);if(s)return JSON.parse(s)}catch(e){}return{completed:{}}}
+function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
+function isComplete(id){return !!state.completed[id]}
+function completedCount(){return CHECKPOINTS.filter(c=>isComplete(c.id)).length}
+function render(){renderPath();renderNodes();updateProgress()}
+function updateProgress(){const n=completedCount(),t=CHECKPOINTS.length,p=Math.round(n/t*100);document.getElementById('progressFill').style.width=p+'%';document.getElementById('progressLabel').textContent=n+' of '+t}
+function getActiveIndex(){for(let i=0;i<CHECKPOINTS.length;i++){if(!isComplete(CHECKPOINTS[i].id))return i}return CHECKPOINTS.length}
+function renderPath(){const svg=document.getElementById('pathSvg'),w=window.innerWidth,h=window.innerHeight-52;svg.setAttribute('viewBox','0 0 '+w+' '+h);let html='';const pts=POSITIONS.map(p=>({x:p.x/100*w,y:p.y/100*h}));const ai=getActiveIndex();for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1],cx1=a.x+(b.x-a.x)*.6,cy1=a.y,cx2=a.x+(b.x-a.x)*.4,cy2=b.y;const d='M'+a.x+','+a.y+' C'+cx1+','+cy1+' '+cx2+','+cy2+' '+b.x+','+b.y;const done=isComplete(CHECKPOINTS[i].id)&&isComplete(CHECKPOINTS[i+1].id);const partial=isComplete(CHECKPOINTS[i].id)&&!isComplete(CHECKPOINTS[i+1].id);const active=i===ai-1||i===ai;if(done)html+='<path d="'+d+'" fill="none" stroke="var(--green)" stroke-width="3" stroke-opacity=".5"/>';else if(partial||active)html+='<path d="'+d+'" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-opacity=".4" stroke-dasharray="8 6"><animate attributeName="stroke-dashoffset" from="28" to="0" dur="1.5s" repeatCount="indefinite"/></path>';else html+='<path d="'+d+'" fill="none" stroke="var(--border)" stroke-width="2" stroke-dasharray="6 8" stroke-opacity=".5"/>'}svg.innerHTML=html}
+function renderNodes(){document.querySelectorAll('.node').forEach(n=>n.remove());const map=document.getElementById('questMap'),ai=getActiveIndex();CHECKPOINTS.forEach((cp,i)=>{const pos=POSITIONS[i];if(!pos)return;const node=document.createElement('div');node.className='node';if(isComplete(cp.id))node.classList.add('complete');else if(i===ai)node.classList.add('active');node.style.left=pos.x+'%';node.style.top='calc('+pos.y+'% + 0px)';const isLocked=i>ai&&!isComplete(cp.id);node.innerHTML='<div class="ring"></div><div class="inner"><span class="emoji">'+(isLocked?'🔒':cp.emoji)+'</span><svg class="check-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><polyline points="4 12 10 18 20 6"/></svg>'+(isLocked?'<span class="lock"></span>':'')+'</div><div class="label">'+cp.title+'</div>';node.addEventListener('click',()=>openPanel(i));map.appendChild(node)})}
+let currentPanel=-1;
+function openPanel(idx){currentPanel=idx;const cp=CHECKPOINTS[idx];document.getElementById('panelEmoji').textContent=cp.emoji;document.getElementById('panelTitle').textContent=cp.title;document.getElementById('panelTime').textContent=cp.time?'⏱ '+cp.time:'';let html='<div class="desc">'+cp.desc+'</div>';if(cp.substeps){html+='<ol class="substeps">';cp.substeps.forEach(s=>html+='<li>'+s+'</li>');html+='</ol>'}if(cp.copies){html+='<div class="copy-group">';cp.copies.forEach(c=>{html+='<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">'+c.label+'</div><div class="copy-block"><span class="copy-text">'+escHtml(c.text)+'</span><button class="copy-btn" onclick="copyText(this,\''+escAttr(c.text)+'\')" title="Copy">📋</button></div></div>'});html+='</div>'}if(cp.copyText&&!cp.copies){html+='<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">'+(cp.copyLabel||'Copy')+'</div><div class="copy-block"><span class="copy-text">'+escHtml(cp.copyText)+'</span><button class="copy-btn" onclick="copyText(this,\''+escAttr(cp.copyText)+'\')" title="Copy">📋</button></div></div>'}if(cp.learn){html+='<div style="font-size:13px;color:var(--text-muted)">📚 <b>What you learn:</b> '+cp.learn+'</div>'}const checked=isComplete(cp.id);html+='<button class="toggle-done '+(checked?'checked':'')+'" onclick="toggleDone(\''+cp.id+'\',this)"><span class="dot">'+(checked?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><polyline points="4 12 10 18 20 6"/></svg>':'')+'</span><span>'+(cp.toggle||'Done ✓')+'</span></button>';if(cp.stuck){html+='<div><button class="stuck-toggle" onclick="this.nextElementSibling.classList.toggle(\'open\')">🆘 I\'m stuck</button><div class="stuck-content"><p>'+cp.stuck+'</p></div></div>'}document.getElementById('panelBody').innerHTML=html;document.getElementById('overlay').classList.add('open');document.getElementById('panel').classList.add('open')}
+function closePanel(){document.getElementById('overlay').classList.remove('open');document.getElementById('panel').classList.remove('open');currentPanel=-1}
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function escAttr(s){return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
+function copyText(btn,text){navigator.clipboard.writeText(text).then(()=>{btn.classList.add('copied');btn.textContent='✓';setTimeout(()=>{btn.classList.remove('copied');btn.textContent='📋'},1500)}).catch(()=>{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);btn.classList.add('copied');btn.textContent='✓';setTimeout(()=>{btn.classList.remove('copied');btn.textContent='📋'},1500)})}
+function toggleDone(id,btn){if(isComplete(id)){delete state.completed[id];btn.classList.remove('checked');btn.querySelector('.dot').innerHTML=''}else{state.completed[id]=true;btn.classList.add('checked');btn.querySelector('.dot').innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><polyline points="4 12 10 18 20 6"/></svg>';celebrate(id)}saveState();render()}
+function celebrate(id){const idx=CHECKPOINTS.findIndex(c=>c.id===id),pos=POSITIONS[idx];if(!pos)return;const x=pos.x/100*window.innerWidth,y=pos.y/100*(window.innerHeight-52)+52;spawnParticles(x,y,12);for(let p=1;p<=4;p++){const phase=CHECKPOINTS.filter(c=>c.phase===p);if(phase.every(c=>isComplete(c.id))&&id===phase[phase.length-1].id)setTimeout(()=>rocketAnimation(),400)}if(completedCount()===CHECKPOINTS.length)setTimeout(()=>{confettiExplosion();showBanner()},600)}
+function spawnParticles(cx,cy,count){const colors=['#58a6ff','#3fb950','#d29922','#f778ba','#bc8cff'];for(let i=0;i<count;i++){const el=document.createElement('div');el.className='particle';el.style.left=cx+'px';el.style.top=cy+'px';el.style.background=colors[i%colors.length];document.body.appendChild(el);const angle=Math.random()*Math.PI*2,dist=40+Math.random()*60,dx=Math.cos(angle)*dist,dy=Math.sin(angle)*dist;el.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:'translate('+dx+'px,'+dy+'px) scale(0)',opacity:0}],{duration:600+Math.random()*400,easing:'cubic-bezier(.4,0,.2,1)'}).onfinish=()=>el.remove()}}
+function rocketAnimation(){const el=document.createElement('div');el.className='rocket-anim';el.textContent='🚀';el.style.left='-50px';el.style.bottom='60%';document.body.appendChild(el);el.animate([{transform:'translate(0,0) rotate(-30deg)',opacity:1},{transform:'translate('+(window.innerWidth+100)+'px,-'+(window.innerHeight/2)+'px) rotate(-30deg)',opacity:.8}],{duration:1400,easing:'cubic-bezier(.25,.1,.25,1)'}).onfinish=()=>el.remove()}
+function confettiExplosion(){const colors=['#58a6ff','#3fb950','#d29922','#f778ba','#bc8cff','#f85149','#fff'];for(let i=0;i<60;i++){const el=document.createElement('div');el.className='confetti';el.style.background=colors[i%colors.length];el.style.left=Math.random()*window.innerWidth+'px';el.style.top='-20px';el.style.width=(6+Math.random()*8)+'px';el.style.height=(10+Math.random()*12)+'px';el.style.borderRadius=Math.random()>.5?'50%':'2px';document.body.appendChild(el);const x=(Math.random()-.5)*200,spin=Math.random()*720-360;el.animate([{transform:'translate(0,0) rotate(0deg)',opacity:1},{transform:'translate('+x+'px,'+(window.innerHeight+40)+'px) rotate('+spin+'deg)',opacity:.6}],{duration:2000+Math.random()*1500,easing:'cubic-bezier(.25,.1,.25,1)',delay:Math.random()*300}).onfinish=()=>el.remove()}}
+function showBanner(){const b=document.getElementById('banner');b.classList.add('show');setTimeout(()=>b.classList.remove('show'),4000)}
+function resetProgress(){if(!confirm('Reset all progress? This cannot be undone.'))return;state={completed:{}};saveState();closePanel();render()}
+render();window.addEventListener('resize',()=>render());
+</script>
+</body>
+</html>

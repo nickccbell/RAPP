@@ -1,4 +1,4 @@
-# start.ps1 — Windows launcher for RAPP Brainstem
+﻿# start.ps1 — Windows launcher for RAPP Brainstem
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 

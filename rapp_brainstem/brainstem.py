@@ -32,6 +32,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Multi-backend LLM support — must be imported AFTER load_dotenv() so env vars
+# are visible to backend constructors.
+from llm_backends import (  # noqa: E402
+    get_llm_backend,
+    get_active_backend_name,
+    get_runtime_model,
+    set_runtime_backend,
+    get_backend_status,
+    VALID_BACKENDS,
+)
+
 app = Flask(__name__, static_folder=os.path.dirname(os.path.abspath(__file__)))
 CORS(app)
 
@@ -772,81 +783,22 @@ def load_agents():
 # ── LLM call ─────────────────────────────────────────────────────────────────
 
 def call_copilot(messages, tools=None):
-    """Call the Copilot chat completions API."""
-    copilot_token, endpoint = get_copilot_token()
-    
-    url = f"{endpoint}/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {copilot_token}",
-        "Content-Type": "application/json",
-        "Editor-Version": "vscode/1.95.0",
-        "Copilot-Integration-Id": "vscode-chat",
-    }
-    body = {
-        "model": MODEL,
-        "messages": messages,
-    }
-    if tools:
-        body["tools"] = tools
-        if MODEL not in _NO_TOOL_CHOICE_MODELS:
-            body["tool_choice"] = "auto"
+    """Dispatch to the configured LLM backend (github_copilot by default).
 
-    print(f"[brainstem] API call: model={MODEL}, tools={len(tools) if tools else 0}, tool_choice={body.get('tool_choice', 'NONE')}")
+    The function name is kept for backward-compatibility — it now routes through
+    the multi-backend factory.  Swap the backend at runtime via PATCH /api/settings
+    or by setting LLM_BACKEND in your .env file.
+    """
+    # Honour any runtime model override set via PATCH /api/settings; otherwise
+    # fall back to the env-configured MODEL (GITHUB_MODEL default).
+    model_override = get_runtime_model()
+    active_model   = model_override or MODEL
 
-    resp = requests.post(url, headers=headers, json=body, timeout=60)
-    if resp.status_code != 200:
-        error_detail = resp.text[:500] if resp.text else "No details"
-        _tlog("api.error", {"model": MODEL, "status": resp.status_code, "detail": error_detail[:300]}, level="error")
-        print(f"[brainstem] API error {resp.status_code} with model '{MODEL}': {error_detail}")
-        # On 400/429/5xx, cycle through other available models before giving up
-        if resp.status_code in (400, 429, 500, 502, 503):
-            tried = {MODEL}
-            fallback_ids = [m["id"] for m in AVAILABLE_MODELS if m["id"] != MODEL]
-            for fallback_model in fallback_ids:
-                if fallback_model in tried:
-                    continue
-                tried.add(fallback_model)
-                print(f"[brainstem] Retrying with {fallback_model}...")
-                body["model"] = fallback_model
-                if fallback_model in _NO_TOOL_CHOICE_MODELS:
-                    body.pop("tool_choice", None)
-                elif tools and "tool_choice" not in body:
-                    body["tool_choice"] = "auto"
-                resp = requests.post(url, headers=headers, json=body, timeout=60)
-                if resp.status_code == 200:
-                    break
-                print(f"[brainstem] {fallback_model} also failed ({resp.status_code})")
-    resp.raise_for_status()
-    result = resp.json()
-
-    # ── Normalize multi-choice responses ──────────────────────────────────────
-    # Some models (e.g. Claude via Copilot API) split text and tool_calls into
-    # separate choices.  Merge them into a single choice so the rest of the
-    # codebase can treat the response uniformly.
-    choices = result.get("choices", [])
-    if len(choices) > 1:
-        merged = {"role": "assistant", "content": None, "tool_calls": []}
-        for c in choices:
-            m = c.get("message", {})
-            if m.get("content"):
-                merged["content"] = (merged["content"] or "") + m["content"]
-            if m.get("tool_calls"):
-                merged["tool_calls"].extend(m["tool_calls"])
-        if not merged["tool_calls"]:
-            del merged["tool_calls"]
-        fr = "tool_calls" if merged.get("tool_calls") else choices[0].get("finish_reason", "stop")
-        result["choices"] = [{"message": merged, "finish_reason": fr}]
-
-    # Debug logging
-    choice = result.get("choices", [{}])[0]
-    msg = choice.get("message", {})
-    fr = choice.get("finish_reason", "")
-    has_tools = bool(msg.get("tool_calls"))
-    print(f"[brainstem] API response: finish_reason={fr}, has_tool_calls={has_tools}, content_len={len(msg.get('content') or '')}")
-    if has_tools:
-        print(f"[brainstem]   tool_calls: {[tc.get('function',{}).get('name','?') for tc in msg['tool_calls']]}")
-
-    return result
+    backend = get_llm_backend()
+    _tlog("api.call", {"backend": backend.name, "model": active_model,
+                       "tools": len(tools) if tools else 0})
+    print(f"[brainstem] call_copilot → backend={backend.name}, model={active_model}")
+    return backend.call(messages, tools=tools, model=active_model)
 
 # ── Agent execution ───────────────────────────────────────────────────────────
 
@@ -1071,6 +1023,48 @@ def set_model():
         return jsonify({"error": f"Unknown model. Available: {valid_ids}"}), 400
     MODEL = new_model
     return jsonify({"model": MODEL})
+
+@app.route("/api/settings", methods=["GET"])
+def api_settings_get():
+    """Return the active LLM backend and model configuration."""
+    return jsonify({
+        "backend":            get_active_backend_name(),
+        "model":              get_runtime_model() or MODEL,
+        "available_backends": [b["id"] for b in get_backend_status()],
+    })
+
+@app.route("/api/settings", methods=["PATCH"])
+def api_settings_patch():
+    """Update the active LLM backend and/or model at runtime (survives until restart)."""
+    data    = request.get_json(force=True) or {}
+    backend = data.get("backend", "").strip().lower()
+    model   = data.get("model", "").strip() or None
+
+    if backend and backend not in VALID_BACKENDS:
+        return jsonify({"error": f"Unknown backend '{backend}'. "
+                                 f"Valid values: {sorted(VALID_BACKENDS)}"}), 400
+
+    if backend:
+        set_runtime_backend(backend, model=model)
+    elif model:
+        # model-only update — keep existing backend
+        set_runtime_backend(get_active_backend_name(), model=model)
+
+    _tlog("settings.updated", {"backend": get_active_backend_name(),
+                               "model": get_runtime_model() or MODEL})
+    return jsonify({
+        "backend": get_active_backend_name(),
+        "model":   get_runtime_model() or MODEL,
+    })
+
+@app.route("/api/backends", methods=["GET"])
+def api_backends():
+    """List all supported backends and their configuration status."""
+    backends  = get_backend_status()
+    active    = get_active_backend_name()
+    for b in backends:
+        b["active"] = (b["id"] == active)
+    return jsonify({"backends": backends, "active": active})
 
 @app.route("/voice", methods=["GET"])
 def voice_status():
